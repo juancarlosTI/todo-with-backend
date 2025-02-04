@@ -76,6 +76,19 @@ app.put('/:id', (req,res) => {
     // console.log('Está funcionando o PUT!');
 });
 
+app.delete('/:id', (req,res) => {
+    const { id } = req.params;
+
+    const insertSql = `DELETE FROM todo_tasks WHERE id = ?;`;
+    db.run(insertSql,[id], function(err){
+        if (err){
+            return res.status(400).send('Erro ao apagar task!');
+        };
+        res.status(201).json({message:'Task apagada'});
+    });
+    // console.log('Está funcionando o PUT!');
+});
+
 // Iniciar o server
 
 app.listen(4005, () => {

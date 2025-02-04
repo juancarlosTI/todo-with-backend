@@ -7,6 +7,7 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 // Images
 
 import checkIcon from '../../assets/Icons/check_24px.svg';
+import closeIcon from "../../assets/Icons/close_24px_grey.svg";
 import { ThemeContext } from "../contexts/toggleButtonContext";
 
 
@@ -22,22 +23,25 @@ const Home = () => {
     const { theme } = useContext(ThemeContext);
 
     //fetchData
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         const response = await fetch(`http://localhost:4005/`)
         const data = await response.json()
         setTasks(() => ({
             allTasks: [...data]
         }));
-    }
+    },[])
+
+    const createTaskPayload = (inputTask) => JSON.stringify(inputTask);
 
     //addData - receber os parâmetros do input (TITLE E COMPLETED);
-    const postTask = async (inputTask) => {
-        // console.log('Dentro de postTask', inputTask)
+    const postTask = useCallback(async (inputTask) => {
+        const payload = createTaskPayload(inputTask);
+
         try {
             const response = await fetch('http://localhost:4005/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(inputTask),
+                body: payload,
             })
             const data = await response.json();
             fetchTasks();
@@ -48,15 +52,16 @@ const Home = () => {
         } catch (error) {
             console.error('ERRO:', error);
         }
-    };
+    },[fetchTasks]);
 
-    const updateTask = async (id, checkedStatus) => {
-        // console.log(`updateTask - ID: ${id}, checkedStatus ${checkedStatus}`);
+    const updateTask = useCallback(async (id, checkedStatus) => {
+        const payload = createTaskPayload({"completed":!checkedStatus});
+
         try {
             const response = await fetch(`http://localhost:4005/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: checkedStatus,
+                body: payload,
             })
             const data = await response.json();
             fetchTasks();
@@ -67,11 +72,27 @@ const Home = () => {
         } catch (error) {
             console.error('ERRO:', error);
         }
+    },[fetchTasks]);
+
+    const deleteTask = async(id) => {
+        try{
+            const response = await fetch(`http://localhost:4005/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+            })
+            const data = await response.json();
+            fetchTasks();
+           
+            if (!response.ok) {
+                throw new Error('Erro ao adicionar tarefa');
+            }
+        }
+        catch(err){}
     }
 
     useEffect(() => {
         fetchTasks();
-    }, [])
+    }, [fetchTasks])
 
     return (
         <Container theme={theme} className="container">
@@ -80,14 +101,14 @@ const Home = () => {
                     <h1 className="list-title">TODO</h1>
                     <ThemeTogglerButton />
                 </div>
-                <ListedNotes updateTask={updateTask} theme={theme} tasks={tasks} setTasks={setTasks} postTask={postTask} />
+                <ListedNotes deleteTask={deleteTask} updateTask={updateTask} theme={theme} tasks={tasks} setTasks={setTasks} postTask={postTask} />
             </HomeStyled>
 
         </Container>
     )
 }
 
-const ListedNotes = ({ theme, tasks, setTasks, postTask, updateTask }) => {
+const ListedNotes = ({ theme, tasks, setTasks, postTask, updateTask, deleteTask }) => {
 
     //State Input
     const [inputTask, setInputTask] = useState({
@@ -136,9 +157,13 @@ const ListedNotes = ({ theme, tasks, setTasks, postTask, updateTask }) => {
     const handleUpdateChecked = (id, checkedStatus) => {
         // Task a ser atualizada
         const requestId = parseInt(id) + 1;
-        const requestUpdate = JSON.stringify({ "completed": !checkedStatus });
-        console.log(`handleUpdateChecked - ID: ${id}, checkedStatus ${requestUpdate}`);
-        updateTask(requestId, requestUpdate);
+        console.log(`handleUpdateChecked - ID: ${requestId}, checkedStatus ${checkedStatus}`);
+        updateTask(requestId, checkedStatus);
+    }
+
+    const handleDeleteTask = (id) => {
+        console.log(id);
+        deleteTask(id);
     }
 
     const reorderTasks = (tasks, startIndex, endIndex) => {
@@ -181,6 +206,7 @@ const ListedNotes = ({ theme, tasks, setTasks, postTask, updateTask }) => {
                                                 <input type="checkbox" id={index} className="note-checked" checked={task.completed} />
                                                 <label htmlFor="note-checked" className="note-checked-label" onClick={() => handleUpdateChecked(index, task.completed)}></label>
                                                 <p className={`content ${task.completed ? 'done' : ''}`}>{task.title}</p>
+                                                <img onClick={() => handleDeleteTask(task.id)} src={closeIcon} alt="Delete task" className="delete-task"/>
                                             </div>
                                         )}
                                     </Draggable>
@@ -278,12 +304,15 @@ const ListedNotesStyled = styled.div`
     }
 
     .posted-note {
-        display:flex;
-        height:60px;
+        display:grid;
+        grid-template-columns: 15% 75% 1fr;
+        min-height:60px;
         align-items:center;
+        justify-items:center;
         border-bottom:1px solid;
         border-color:${(props) => props.theme.border_color};
         cursor:pointer;
+        width:100%;
     }
 
     .note-checked {
@@ -321,10 +350,16 @@ const ListedNotesStyled = styled.div`
     .content {
         margin:0;
         width:100%;
+        overflow-wrap: break-word;
     }
 
     .content.done {
         text-decoration:line-through;
+    }
+
+    .delete-task{
+        width:24px;
+        height:24px;
     }
 
     .actions-and-info {
@@ -372,13 +407,15 @@ const ListedNotesStyled = styled.div`
 export default Home
 
 // Não-concluido
-
-
-// States react - OK
+// Wrap task quando exceder o tamanho designado pelo grid; LINHA 200 a 210;
+// Estilizar botão delete
 // Filter actions - WIP
+// Responsividade mobile
+
+// Excluir task - OK
+// States react - OK
 // Toggle Button - OK
 // checkedIcon para a checkbox - OK
 // Font BOLD para barra de filtragem - OK
 // Riscar a tarefa quando o checkbox estiver selecionado - OK
 // Função dos botoes checked (Atualizar banco de dados) - OK
-// Responsividade mobile
